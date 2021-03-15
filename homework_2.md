@@ -1,4 +1,5 @@
 1. Unfinished
+```
 CREATE OR REPLACE FUNCTION public.jsonb_keys_recursive(_value jsonb)
  RETURNS TABLE(key text)
  LANGUAGE sql
@@ -24,7 +25,7 @@ SELECT key
 $function$;
 ----
 select jsonb_keys_recursive(resource) from test_patient
-
+```
 
 2. Database traversal stats
 ```

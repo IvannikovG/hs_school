@@ -29,6 +29,7 @@ select jsonb_keys_recursive(resource) from test_patient
 
 2. Database traversal stats
 ```
+with yet_another as (
 with another_layer as (
 with general_stats as(
 with all_tables_stats as (
@@ -88,16 +89,22 @@ join table_columns on all_tables_stats.table_name = table_columns.table_name
 join indexes on all_tables_stats.table_name = indexes.table_name
 join index_name_types on all_tables_stats.table_name = index_name_types.table_name)
 select schema, table_name,
-jsonb_build_object('rows', jsonb_agg(rows_estimate),
-                   'index_size', jsonb_agg(total_indexes_size),
-                   index_name, jsonb_build_object('size', jsonb_agg(index_size),
-                                               'index_type', jsonb_agg(index_type))) as index
+jsonb_build_object('rows', jsonb_array_elements(jsonb_agg(rows_estimate)),
+                   'index_size', jsonb_array_elements(jsonb_agg(total_indexes_size)),
+                   index_name, jsonb_build_object('size', jsonb_array_elements(jsonb_agg(index_size)),
+                                               'index_type', jsonb_array_elements(jsonb_agg(index_type)))) as index
 
 from general_stats
-group by schema, table_name, index_name)
-select
-jsonb_build_object(schema, jsonb_build_object(table_name, index))
-from another_layer;
+where schema = 'public'
+group by schema, table_name, index_name
+limit 3)
+select schema, jsonb_agg(json_build_object(table_name, index)) my_agg
+from another_layer
+group by schema )
+
+select jsonb_pretty(jsonb_agg(json_build_object(schema, my_agg))) from yet_another;
+
+
 ```
 3. Unfinished
 ```

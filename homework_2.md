@@ -1,30 +1,38 @@
-1. Unfinished
+1. Test-patient traversal
 ```
-CREATE OR REPLACE FUNCTION public.jsonb_keys_recursive(_value jsonb)
- RETURNS TABLE(key text)
- LANGUAGE sql
-AS $function$
-WITH RECURSIVE _tree (key, value) AS (
-  SELECT
-    NULL   AS key,
-    _value AS value
-  UNION ALL
-  (WITH typed_values AS (SELECT jsonb_typeof(value) as typeof, value FROM _tree)
-   SELECT v.*
-     FROM typed_values, LATERAL jsonb_each(value) v
-     WHERE typeof = 'object'
-   UNION ALL
-   SELECT NULL, element
-     FROM typed_values, LATERAL jsonb_array_elements(value) element
-     WHERE typeof = 'array'
-  )
+with recursive cte as (
+ select
+ array[top_level_key] as path, array[top_level_key] as total_path, v as val
+ from test_patient p, jsonb_each(resource) t(top_level_key, v)
+ union all
+ (
+  with all_entries as (select * from cte)
+
+   select path || array[t.k] as path,
+          path || array[t.k] as total_new_path,
+          t.v as values
+   from all_entries i, jsonb_each(i.val) t(k, v)
+   where jsonb_typeof(val) = 'object'
+
+   union all
+
+   select path,
+          path || array[(elem)::text] as total_new_path,
+          elem.value as val
+   from all_entries i, jsonb_array_elements(val) elem(value)
+   where jsonb_typeof(val) = 'array'
+ )
+), total as (
+   select count(*) as t from test_patient
 )
-SELECT key
-  FROM _tree
-  WHERE key IS NOT NULL
-$function$;
-----
-select jsonb_keys_recursive(resource) from test_patient
+select
+distinct path
+, count(*)
+, ((count(*)::float / (select t from total)) * 100)::int percent
+from cte
+group by path
+order by count(*) desc, path;
+
 ```
 
 2. Database traversal stats
